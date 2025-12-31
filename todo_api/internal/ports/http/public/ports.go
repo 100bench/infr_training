@@ -6,7 +6,7 @@ import (
 )
 
 type ServicePort interface {
-	CreateTask(ctx context.Context, title, description string) error
+	CreateTask(ctx context.Context, title, description string) (*entities.Task, error)
 	GetTasks(ctx context.Context, id string) (*entities.Task, error)
 	DeleteTask(ctx context.Context, id string) error
 }

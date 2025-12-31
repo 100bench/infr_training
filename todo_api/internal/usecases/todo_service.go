@@ -16,7 +16,7 @@ func NewTodoService(storage Storage) *TodoService {
 	}
 }
 
-func (s *TodoService) CreateTask(ctx context.Context, title, description string) error {
+func (s *TodoService) CreateTask(ctx context.Context, title, description string) (*entities.Task, error) {
 	task := &entities.Task{
 		Title:       title,
 		Description: description,
@@ -26,9 +26,9 @@ func (s *TodoService) CreateTask(ctx context.Context, title, description string)
 
 	err:= s.storage.Save(ctx, task)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return task, nil
 }
 
 func (s *TodoService) GetTasks(ctx context.Context, id string) (*entities.Task, error) {
