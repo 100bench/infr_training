@@ -7,10 +7,10 @@ import (
 )
 
 type TodoService struct {
-	storage Storage
+	storage TaskStorage
 }
 
-func NewTodoService(storage Storage) *TodoService {
+func NewTodoService(storage TaskStorage) *TodoService {
 	return &TodoService{
 		storage: storage,
 	}
