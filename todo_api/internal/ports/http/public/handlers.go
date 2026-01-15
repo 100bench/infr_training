@@ -70,14 +70,15 @@ func (s *Server) handleGetTask(w http.ResponseWriter, r *http.Request) {
     ctx := r.Context()
     id := chi.URLParam(r, "id")
     task, err := s.service.GetTasks(ctx, id)
+    if errors.Is(err, entities.ErrTaskNotFound){
+        http.Error(w, err.Error(), http.StatusNotFound)
+        return
+    }
     if err != nil {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return
     }
-    if task == nil {
-        http.Error(w, "task not found", http.StatusNotFound)
-        return
-    }
+    
     w.Header().Set("Content-Type", "application/json")
     json.NewEncoder(w).Encode(task)
 }
@@ -86,6 +87,10 @@ func (s *Server) handleDeleteTask(w http.ResponseWriter, r *http.Request) {
     ctx := r.Context()
     id := chi.URLParam(r, "id")
     err := s.service.DeleteTask(ctx, id)
+    if errors.Is(err, entities.ErrTaskNotFound){
+        http.Error(w, err.Error(), http.StatusNotFound)
+        return
+    }
     if err != nil {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return
