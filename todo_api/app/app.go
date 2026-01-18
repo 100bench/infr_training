@@ -2,21 +2,26 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-    "go.uber.org/zap"
 	"github.com/100bench/infr_training/internal/adapters/cache"
 	"github.com/100bench/infr_training/internal/adapters/storage/postgres"
 	"github.com/100bench/infr_training/internal/ports/http/public"
 	"github.com/100bench/infr_training/internal/usecases"
+	"go.uber.org/zap"
 )
 
 func RunApp() error {
-    logger, _:= zap.NewProduction()
+    logger, err:= zap.NewProduction()
+    if err != nil {
+        return fmt.Errorf("%w: no zap logger", err)
+    }
+
     defer logger.Sync()
     sugar:= logger.Sugar()
     sugar.Info("Starting application...")
@@ -56,6 +61,9 @@ func RunApp() error {
     httpServer := &http.Server{
         Addr:    ":8080",
         Handler: server.GetRouter(),
+        ReadTimeout:  15 * time.Second,
+        WriteTimeout: 15 * time.Second,
+        IdleTimeout:  60 * time.Second,
     }
     
     // 3. Start server
@@ -71,7 +79,7 @@ func RunApp() error {
     signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
     <-stop
     
-    sugar.Errorw("Shutting down server...")
+    sugar.Infow("Shutting down server...")
     
     // 5. Graceful shutdown
     ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

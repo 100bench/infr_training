@@ -3,6 +3,7 @@ package public
 import (
     "github.com/go-chi/chi/v5"
     "github.com/go-chi/chi/v5/middleware"
+    "github.com/google/uuid"
     "github.com/pkg/errors"
     "github.com/100bench/infr_training/internal/entities"
     "encoding/json"
@@ -64,11 +65,19 @@ func (s *Server) handleCreateTask(w http.ResponseWriter, r *http.Request) {
     w.Header().Set("Content-Type", "application/json")
     w.WriteHeader(http.StatusCreated)
     json.NewEncoder(w).Encode(task)
+    // if err := json.NewEncoder(w).Encode(task); err != nil {
+    //   logger.Error("failed to encode response", zap.Error(err))
+    // }
 }
 
 func (s *Server) handleGetTask(w http.ResponseWriter, r *http.Request) {
     ctx := r.Context()
+
     id := chi.URLParam(r, "id")
+    if _, err := uuid.Parse(id); err != nil {
+      http.Error(w, "invalid uuid", http.StatusBadRequest)
+      return
+    }
     task, err := s.service.GetTasks(ctx, id)
     if errors.Is(err, entities.ErrTaskNotFound){
         http.Error(w, err.Error(), http.StatusNotFound)
