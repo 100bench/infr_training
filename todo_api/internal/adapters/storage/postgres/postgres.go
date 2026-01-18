@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	en "github.com/100bench/infr_training/internal/entities"
+	en "github.com/100bench/infr_training/todo_api/internal/entities"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 )

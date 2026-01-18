@@ -2,7 +2,7 @@ package usecases
 
 
 import ("context"
-	"github.com/100bench/infr_training/internal/entities"
+	"github.com/100bench/infr_training/todo_api/internal/entities"
 )
 
 type TaskStorage interface {

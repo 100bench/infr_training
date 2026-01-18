@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 	"os"
-	"github.com/100bench/infr_training/app"
+	"github.com/100bench/infr_training/todo_api/app"
 )
 
 func main() {

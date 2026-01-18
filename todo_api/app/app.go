@@ -9,10 +9,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/100bench/infr_training/internal/adapters/cache"
-	"github.com/100bench/infr_training/internal/adapters/storage/postgres"
-	"github.com/100bench/infr_training/internal/ports/http/public"
-	"github.com/100bench/infr_training/internal/usecases"
+	"github.com/100bench/infr_training/todo_api/internal/adapters/cache"
+	"github.com/100bench/infr_training/todo_api/internal/adapters/storage/postgres"
+	"github.com/100bench/infr_training/todo_api/internal/ports/http/public"
+	"github.com/100bench/infr_training/todo_api/internal/usecases"
 	"go.uber.org/zap"
 )
 

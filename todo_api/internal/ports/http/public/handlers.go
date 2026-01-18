@@ -5,7 +5,7 @@ import (
     "github.com/go-chi/chi/v5/middleware"
     "github.com/google/uuid"
     "github.com/pkg/errors"
-    "github.com/100bench/infr_training/internal/entities"
+    "github.com/100bench/infr_training/todo_api/internal/entities"
     "encoding/json"
     "net/http"
 )
