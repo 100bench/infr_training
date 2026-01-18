@@ -1,4 +1,4 @@
-module github.com/100bench/infr_training
+module github.com/100bench/infr_training/todo_api
 
 go 1.24.3
 
