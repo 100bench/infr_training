@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package notification.v1;
+
+option go_package = "github.com/100bench/infr_training/pkg/proto/gen/notification/v1;notificationv1";
+
+enum EventType {
+EVENT_TYPE_UNSPECIFIED = 0;
+EVENT_TYPE_CREATED = 1;
+EVENT_TYPE_DELETED = 2;
+}
+
+message TaskEvent {
+string id = 1;
+string title = 2;
+EventType event_type = 3;
+}
+
+message Empty {}
+
+service NotificationService {
+    rpc Send(TaskEvent) returns (Empty);
+}
