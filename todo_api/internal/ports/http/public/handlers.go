@@ -5,7 +5,7 @@ import (
     "github.com/go-chi/chi/v5/middleware"
     "github.com/google/uuid"
     "github.com/pkg/errors"
-    "github.com/100bench/infr_training/todo_api/internal/entities"
+    er "github.com/100bench/infr_training/pkg/errors"
     "encoding/json"
     "net/http"
 )
@@ -18,7 +18,7 @@ type Server struct {
 
 func NewServer(service ServicePort) (*Server, error) {
 	if service == nil {
-		return nil, errors.Wrap(entities.ErrNilDependency, "public server service")
+		return nil, errors.Wrap(er.ErrNilDependency, "public server service")
 	}
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
@@ -78,8 +78,8 @@ func (s *Server) handleGetTask(w http.ResponseWriter, r *http.Request) {
       http.Error(w, "invalid uuid", http.StatusBadRequest)
       return
     }
-    task, err := s.service.GetTasks(ctx, id)
-    if errors.Is(err, entities.ErrTaskNotFound){
+    task, err := s.service.GetTask(ctx, id)
+    if errors.Is(err, er.ErrEntityNotFound){
         http.Error(w, err.Error(), http.StatusNotFound)
         return
     }
@@ -96,7 +96,7 @@ func (s *Server) handleDeleteTask(w http.ResponseWriter, r *http.Request) {
     ctx := r.Context()
     id := chi.URLParam(r, "id")
     err := s.service.DeleteTask(ctx, id)
-    if errors.Is(err, entities.ErrTaskNotFound){
+    if errors.Is(err, er.ErrEntityNotFound){
         http.Error(w, err.Error(), http.StatusNotFound)
         return
     }
