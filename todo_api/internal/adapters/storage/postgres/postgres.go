@@ -3,8 +3,10 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"errors"
 
 	en "github.com/100bench/infr_training/todo_api/internal/entities"
+	er "github.com/100bench/infr_training/pkg/errors"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -29,11 +31,8 @@ func (t *TaskStorage) Close() {
 }
 
 func (t *TaskStorage) Save(ctx context.Context, task *en.Task) error {
-	const q = `INSERT INTO tasks (title, description, completed) VALUES ($1, $2, $3) 
-	ON CONFLICT (id) DO UPDATE SET 
-	title = EXCLUDED.title,
-      description = EXCLUDED.description,
-      completed = EXCLUDED.completed 
+	const q = `INSERT INTO tasks (title, description, completed) 
+	VALUES ($1, $2, $3) 
 	RETURNING id`
 	err := t.pool.QueryRow(ctx, q, task.Title, task.Description, task.Completed).Scan(&task.ID)
 	if err != nil {
@@ -49,7 +48,7 @@ func (t *TaskStorage) Load(ctx context.Context, id string) (*en.Task, error) {
 	task := &en.Task{}
 	err := row.Scan(&task.ID, &task.Title, &task.Description, &task.Completed)
 	if err == pgx.ErrNoRows{
-		return nil, fmt.Errorf("%w: Storage.Load()", en.ErrTaskNotFound)
+		return nil, fmt.Errorf("%w: Storage.Load()", er.ErrEntityNotFound)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("%w: Taskstorage.Load()", err)
@@ -57,15 +56,21 @@ func (t *TaskStorage) Load(ctx context.Context, id string) (*en.Task, error) {
 	return task, nil
 }
 
-func (t *TaskStorage) Delete(ctx context.Context, id string) error {
-	const q = `DELETE FROM tasks WHERE id=$1`
-	tag, err := t.pool.Exec(ctx, q, id)
+func (t *TaskStorage) Delete(ctx context.Context, id string) (string, error) {
+	const q = `
+		DELETE FROM tasks
+		WHERE id = $1
+		RETURNING title
+	`
+
+	var title string
+	err := t.pool.QueryRow(ctx, q, id).Scan(&title)
 	if err != nil {
-		return fmt.Errorf("%w: Taskstorage.Delete()", err)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", er.ErrEntityNotFound
+		}
+		return "", fmt.Errorf("TaskStorage.Delete: %w", err)
 	}
-	rows:= tag.RowsAffected()
-	if rows == 0 {
-		return fmt.Errorf("%w: Storage.Delete()", en.ErrTaskNotFound)
-	}
-	return nil
+
+	return title, nil
 }
