@@ -2,9 +2,10 @@ package circuitbreaker
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"time"
+
+	er "github.com/100bench/infr_training/pkg/errors"
 )
 
 type State int
@@ -33,10 +34,10 @@ type CircuitBreaker struct {
 	halfOpenTimer *time.Timer
 	halfOpenSuccesses int
 	mtx           sync.Mutex
-	onStateChange func(string)
+	onStateChange func(State)
 }
 
-func NewCircuitBreaker(maxFailures, maxHalfOpenSuccesses, halfOpenSuccesses int, resetTimeout time.Duration) *CircuitBreaker {
+func NewCircuitBreaker(maxFailures, maxHalfOpenSuccesses int, resetTimeout time.Duration) *CircuitBreaker {
 	return &CircuitBreaker{
 		state:        StateClosed,
 		maxFailures:  maxFailures,
@@ -55,7 +56,7 @@ func (cb *CircuitBreaker) Call(ctx context.Context, operation func() error) erro
       	cb.mtx.Unlock()
 		switch currentState {
 		case StateOpen:
-			return errors.New("circuit breaker is open")
+			return er.ErrOpenState
 		case StateHalfOpen:
 			err := operation()
 			if err != nil {
@@ -94,7 +95,10 @@ func (cb *CircuitBreaker) recordFailure() {
     cb.failureCount++
     if cb.failureCount >= cb.maxFailures {
         cb.transitionTo(StateOpen)
+		cb.halfOpenSuccesses = 0
         cb.halfOpenTimer = time.AfterFunc(cb.resetTimeout, func() {
+			cb.mtx.Lock()
+			defer cb.mtx.Unlock()
             cb.transitionTo(StateHalfOpen)
         })
     }
@@ -107,6 +111,7 @@ func (cb *CircuitBreaker) reset() {
 		cb.halfOpenTimer = nil
 	}
 	cb.failureCount = 0
+	cb.halfOpenSuccesses = 0
 	cb.transitionTo(StateClosed)
     
 }
@@ -115,10 +120,12 @@ func (cb *CircuitBreaker) reset() {
 func (cb *CircuitBreaker) transitionTo(state State) {
     cb.state = state
     if cb.onStateChange != nil {
-        cb.onStateChange(state.String())
+        cb.onStateChange(state)
     }
 }
 
-func (cb *CircuitBreaker) State() string {
-	return cb.state.String()
+func (cb *CircuitBreaker) State() State {
+	cb.mtx.Lock()
+	defer cb.mtx.Unlock()
+	return cb.state
 }
