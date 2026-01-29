@@ -1,8 +1,8 @@
-package entities
+package errors
 
 import "errors"
 
 var (
 	ErrNilDependency        = errors.New("nil dependency: ")
-	ErrSubscriptionNotFound = errors.New("subscription not found")
+	ErrEntityNotFound = errors.New("entitie not found")
 )
