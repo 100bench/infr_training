@@ -6,11 +6,12 @@ FROM golang:1.24-alpine AS builder
 WORKDIR /build
 
 # кешируем зависимости, чтобы не качать их каждый раз при изменении кода
-COPY go.mod go.sum ./
+COPY todo_api/go.mod todo_api/go.sum ./
+COPY pkg ../pkg/
 RUN go mod download
 
 # копируем весь код и билдим бинарник
-COPY . .
+COPY todo_api/ .
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build -o /build/server ./cmd/main.go
 
