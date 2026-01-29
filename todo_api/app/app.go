@@ -17,7 +17,9 @@ import (
     "github.com/100bench/infr_training/todo_api/internal/adapters/grpc_client"
     "google.golang.org/grpc"
     "google.golang.org/grpc/credentials/insecure"
+    cb "github.com/100bench/infr_training/pkg/circuit_breaker"
 )
+
 
 func RunApp() error {
     logger, err:= log.NewDevelopmentLogger()
@@ -72,8 +74,11 @@ func RunApp() error {
     defer conn.Close()  
 
     notificationClient := grpc_client.NewNotificationClient(conn)
+    cb:= *cb.NewCircuitBreaker(5, 3, 2, 30*time.Second)
+    notifierWithCB:= grpc_client.NewNotifierWithCircuitBreaker(notificationClient, &cb)
+
     
-    todoService, err := usecases.NewTodoService(storage, redisCache, notificationClient, logger)
+    todoService, err := usecases.NewTodoService(storage, redisCache, notifierWithCB, logger)
     if err != nil {
         var field log.Field
         field = log.Field{Key: "error", Value: err}
