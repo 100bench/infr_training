@@ -13,43 +13,72 @@ import (
 	"github.com/100bench/infr_training/todo_api/internal/adapters/storage/postgres"
 	"github.com/100bench/infr_training/todo_api/internal/ports/http/public"
 	"github.com/100bench/infr_training/todo_api/internal/usecases"
-	"go.uber.org/zap"
+    log "github.com/100bench/infr_training/pkg/logger"
+    "github.com/100bench/infr_training/todo_api/internal/adapters/grpc_client"
+    "google.golang.org/grpc"
+    "google.golang.org/grpc/credentials/insecure"
 )
 
 func RunApp() error {
-    logger, err:= zap.NewProduction()
+    logger, err:= log.NewDevelopmentLogger()
     if err != nil {
         return fmt.Errorf("%w: no zap logger", err)
     }
 
-    defer logger.Sync()
-    sugar:= logger.Sugar()
-    sugar.Info("Starting application...")
+    logger.Info("Starting application...")
 
     dsn:= os.Getenv("DSN_STRING")
     if dsn == "" {
-        sugar.Errorw("DSN_STRING environment variable is not set")
+        return fmt.Errorf("%w: DSN_STRING environment variable is not set", err)
     }
     addr:= os.Getenv("REDIS_ADDR")
+    if addr == "" {
+        return fmt.Errorf("%w: REDIS_ADDR environment variable is not set", err)
+    }
 
     ctx:= context.Background()
 
     // 1. Dependencies
     storage, err := postgres.NewTaskStorage(ctx, dsn)
     if err != nil {
-        sugar.Errorw("Failed to create task storage:", "error", err)
+        var field log.Field
+        field = log.Field{Key: "error", Value: err}
+        logger.Error("Failed to create task storage", field)
+        return fmt.Errorf("%w: Failed to create task storage", err)
+        
     }
     defer storage.Close()
 
     redisCache, err := cache.NewRedisCache(ctx, addr)
     if err != nil {
-        sugar.Errorw("Failed to create cache:", "error", err)
+        var field log.Field
+        field = log.Field{Key: "error", Value: err}
+        logger.Error("Failed to create cache", field)
+        return fmt.Errorf("%w: Failed to create cache", err)
     }
     defer redisCache.Close()
-    
-    todoService, err := usecases.NewTodoService(storage, redisCache)
+
+    notifyAddr:= os.Getenv("NOTIFY_SERVICE_ADDR")
+    if notifyAddr == "" {
+        return fmt.Errorf("%w: NOTIFY_SERVICE_ADDR environment variable is not set", err)
+    }
+    conn, err := grpc.NewClient(notifyAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
     if err != nil {
-        sugar.Errorw("Failed to create todo service:", "error", err)
+        var field log.Field
+        field = log.Field{Key: "error", Value: err}
+        logger.Error("Failed to connect to notification service", field)
+        return fmt.Errorf("%w: Failed to connect to notification service", err)
+    }
+    defer conn.Close()  
+
+    notificationClient := grpc_client.NewNotificationClient(conn)
+    
+    todoService, err := usecases.NewTodoService(storage, redisCache, notificationClient, logger)
+    if err != nil {
+        var field log.Field
+        field = log.Field{Key: "error", Value: err}
+        logger.Error("Failed to create todo service", field)
+        return fmt.Errorf("%w: Failed to create todo service", err)
     }
 
     server, err := public.NewServer(todoService)
@@ -70,7 +99,9 @@ func RunApp() error {
     go func() {
         logger.Info("Server starting on :8080")
         if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-            sugar.Errorw("Server error", "error", err)
+            var field log.Field
+            field = log.Field{Key: "error", Value: err}
+            logger.Error("Server error", field)
         }
     }()
     
@@ -79,7 +110,7 @@ func RunApp() error {
     signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
     <-stop
     
-    sugar.Infow("Shutting down server...")
+    logger.Info("Shutting down server...")
     
     // 5. Graceful shutdown
     ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
