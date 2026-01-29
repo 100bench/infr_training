@@ -32,7 +32,7 @@ type CircuitBreaker struct {
 	resetTimeout  time.Duration
 	halfOpenTimer *time.Timer
 	halfOpenSuccesses int
-	mtx           sync.RWMutex
+	mtx           sync.Mutex
 	onStateChange func(string)
 }
 
@@ -42,44 +42,55 @@ func NewCircuitBreaker(maxFailures, maxHalfOpenSuccesses, halfOpenSuccesses int,
 		maxFailures:  maxFailures,
 		resetTimeout: resetTimeout,
 		maxHalfOpenSuccesses: maxHalfOpenSuccesses,
-		halfOpenSuccesses: halfOpenSuccesses,
 	}
 }
 
 func (cb *CircuitBreaker) Call(ctx context.Context, operation func() error) error{
-	cb.mtx.RLock()
-	defer cb.mtx.RUnlock()
-	switch cb.state {
-    case StateOpen:
-        return errors.New("circuit breaker is open")
-	case StateHalfOpen:
-		err := operation()
-		if err != nil {
-			cb.recordFailure()
-			return err
-		}
-		cb.halfOpenSuccesses++
-		if cb.halfOpenSuccesses >= cb.maxHalfOpenSuccesses {
+	 select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+		cb.mtx.Lock()
+      	currentState := cb.state
+      	cb.mtx.Unlock()
+		switch currentState {
+		case StateOpen:
+			return errors.New("circuit breaker is open")
+		case StateHalfOpen:
+			err := operation()
+			if err != nil {
+				cb.mtx.Lock()
+				cb.recordFailure()
+				cb.mtx.Unlock()
+				return err
+			}
+			cb.mtx.Lock()
+			cb.halfOpenSuccesses++
+			if cb.halfOpenSuccesses >= cb.maxHalfOpenSuccesses {
+				cb.reset()
+			}
+			cb.mtx.Unlock()
+			return nil
+		case StateClosed:
+			err := operation()
+			if err != nil {
+				cb.mtx.Lock()
+				cb.recordFailure()
+				cb.mtx.Unlock()
+				return err
+			}
+			cb.mtx.Lock()
 			cb.reset()
+			cb.mtx.Unlock()
+			return nil
 		}
 		return nil
-    case StateClosed:
-        err := operation()
-        if err != nil {
-            cb.recordFailure()
-            return err
-        }
-        cb.reset()
-        return nil
-    }
-    return nil
+	}
 
 }
 
 // recordFailure обновляет счетчик неудач и переключает состояние при необходимости
 func (cb *CircuitBreaker) recordFailure() {
-	cb.mtx.RLock()
-	defer cb.mtx.RUnlock()
     cb.failureCount++
     if cb.failureCount >= cb.maxFailures {
         cb.transitionTo(StateOpen)
@@ -91,8 +102,6 @@ func (cb *CircuitBreaker) recordFailure() {
 
 // reset сбрасывает счетчик неудач и переключает состояние на закрытое
 func (cb *CircuitBreaker) reset() {
-	cb.mtx.RLock()
-	defer cb.mtx.RUnlock()
     if cb.halfOpenTimer != nil {
 		cb.halfOpenTimer.Stop()
 		cb.halfOpenTimer = nil
@@ -104,8 +113,6 @@ func (cb *CircuitBreaker) reset() {
 
 // transitionTo переключает состояние Circuit Breaker
 func (cb *CircuitBreaker) transitionTo(state State) {
-	cb.mtx.RLock()
-	defer cb.mtx.RUnlock()
     cb.state = state
     if cb.onStateChange != nil {
         cb.onStateChange(state.String())
@@ -113,7 +120,5 @@ func (cb *CircuitBreaker) transitionTo(state State) {
 }
 
 func (cb *CircuitBreaker) State() string {
-	cb.mtx.RLock()
-	defer cb.mtx.RUnlock()
 	return cb.state.String()
 }
