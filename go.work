@@ -1,0 +1,7 @@
+go 1.24.3
+
+use (
+	./notify_api
+	./pkg
+	./todo_api
+)
