@@ -1,0 +1,7 @@
+services:
+  app:
+    dns:
+      - 8.8.8.8
+    build: .
+    ports:
+      - "50051:50051"
