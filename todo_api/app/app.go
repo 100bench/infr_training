@@ -26,13 +26,14 @@ func RunApp() error {
     if err != nil {
         return fmt.Errorf("%w: no zap logger", err)
     }
-
+    
     logger.Info("Starting application...")
 
     dsn:= os.Getenv("DSN_STRING")
     if dsn == "" {
         return fmt.Errorf("%w: DSN_STRING environment variable is not set", err)
     }
+
     addr:= os.Getenv("REDIS_ADDR")
     if addr == "" {
         return fmt.Errorf("%w: REDIS_ADDR environment variable is not set", err)

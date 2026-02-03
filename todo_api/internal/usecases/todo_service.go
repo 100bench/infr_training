@@ -48,7 +48,6 @@ func (s *TodoService) CreateTask(ctx context.Context, title, description string)
 		return nil, err
 	}
 
-	// sircuit breaker pattern can be applied here
 	err = s.notifier.Send(ctx, task.ID.String(), title, pb.EventType_EVENT_TYPE_CREATED)
 	if err != nil{
 		s.log.Warn("failed to send create notification")
@@ -89,7 +88,6 @@ func (s *TodoService) DeleteTask(ctx context.Context, id string) error {
 		return err
 	}
 
-	// sircuit breaker pattern can be applied here
 	err = s.notifier.Send(ctx, id, title, pb.EventType_EVENT_TYPE_DELETED)
 	if err != nil{
 		s.log.Warn("failed to send delete notification")

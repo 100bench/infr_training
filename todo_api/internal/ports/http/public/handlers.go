@@ -1,13 +1,16 @@
 package public
 
 import (
-    "github.com/go-chi/chi/v5"
-    "github.com/go-chi/chi/v5/middleware"
-    "github.com/google/uuid"
-    "github.com/pkg/errors"
-    er "github.com/100bench/infr_training/pkg/errors"
-    "encoding/json"
-    "net/http"
+	"encoding/json"
+	"net/http"
+
+	er "github.com/100bench/infr_training/pkg/errors"
+	mw "github.com/100bench/infr_training/todo_api/internal/ports/http/middleware"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/google/uuid"
+	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type Server struct {
@@ -23,6 +26,7 @@ func NewServer(service ServicePort) (*Server, error) {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+    r.Use(mw.MetricsMiddleware)
 	s := &Server{
 		service: service,
 		router:  r,
@@ -36,12 +40,16 @@ func (s *Server) GetRouter() *chi.Mux {
 }
 
 func (s *Server) setupRoutes() {
+    s.router.Handle("/metrics", promhttp.Handler())
+    
 	s.router.Route("/api/v1", func(r chi.Router) {
 		r.Post("/task", s.handleCreateTask)
 		r.Get("/task/{id}", s.handleGetTask)
 		r.Delete("/task/{id}", s.handleDeleteTask)
 	})
 }
+
+
 
 func (s *Server) handleCreateTask(w http.ResponseWriter, r *http.Request) {
     ctx := r.Context()
