@@ -47,7 +47,7 @@ func (s *TodoService) CreateTask(ctx context.Context, title, description string)
 	if err != nil {
 		return nil, err
 	}
-
+	
 	err = s.notifier.Send(ctx, task.ID.String(), title, pb.EventType_EVENT_TYPE_CREATED)
 	if err != nil{
 		s.log.Warn("failed to send create notification")
