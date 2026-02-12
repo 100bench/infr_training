@@ -25,6 +25,10 @@ func Int(key string, val int) Field {
 	return Field{Key: key, Value: val}
 }
 
+func Float64(key string, val float64) Field {
+	return Field{Key: key, Value: val}
+}
+
 func Any(key string, val any) Field {
 	return Field{Key: key, Value: val}
 }

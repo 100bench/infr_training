@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+  namespace: infr-training
+spec:
+  selector:
+    app: nginx
+  type: ClusterIP          # Внутри кластера
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
