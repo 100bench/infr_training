@@ -9,15 +9,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/100bench/infr_training/todo_api/internal/adapters/cache"
-	"github.com/100bench/infr_training/todo_api/internal/adapters/storage/postgres"
+	cb "github.com/100bench/infr_training/pkg/circuit_breaker"
+	log "github.com/100bench/infr_training/pkg/logger"
+	"github.com/100bench/infr_training/todo_api/internal/adapters/grpc_client"
+	"github.com/100bench/infr_training/todo_api/internal/config"
 	"github.com/100bench/infr_training/todo_api/internal/ports/http/public"
 	"github.com/100bench/infr_training/todo_api/internal/usecases"
-    log "github.com/100bench/infr_training/pkg/logger"
-    "github.com/100bench/infr_training/todo_api/internal/adapters/grpc_client"
-    "google.golang.org/grpc"
-    "google.golang.org/grpc/credentials/insecure"
-    cb "github.com/100bench/infr_training/pkg/circuit_breaker"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 
@@ -29,57 +28,40 @@ func RunApp() error {
     
     logger.Info("Starting application...")
 
-    dsn:= os.Getenv("DSN_STRING")
-    if dsn == "" {
-        return fmt.Errorf("%w: DSN_STRING environment variable is not set", err)
+    cfg, err:= config.Load()
+    if err != nil { 
+        logger.Error("Failed to load configuration", log.Field{Key: "error", Value: err})
+        return fmt.Errorf("%w: Failed to load configuration", err)
     }
 
-    addr:= os.Getenv("REDIS_ADDR")
-    if addr == "" {
-        return fmt.Errorf("%w: REDIS_ADDR environment variable is not set", err)
-    }
-
-    ctx:= context.Background()
+    ctx := context.Background()
 
     // 1. Dependencies
-    storage, err := postgres.NewTaskStorage(ctx, dsn)
+    d, err := initDeps(ctx, cfg, logger)
     if err != nil {
-        var field log.Field
-        field = log.Field{Key: "error", Value: err}
-        logger.Error("Failed to create task storage", field)
-        return fmt.Errorf("%w: Failed to create task storage", err)
-        
+        logger.Error("Failed to init dependencies", log.Field{Key: "error", Value: err})
+        return fmt.Errorf("%w: Failed to init dependencies", err)
     }
-    defer storage.Close()
+    defer d.close()
 
-    redisCache, err := cache.NewRedisCache(ctx, addr)
+    // 2. gRPC notifier (временно, до полного перехода на Kafka)
+    conn, err := grpc.NewClient(cfg.NotifyServiceAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
     if err != nil {
-        var field log.Field
-        field = log.Field{Key: "error", Value: err}
-        logger.Error("Failed to create cache", field)
-        return fmt.Errorf("%w: Failed to create cache", err)
-    }
-    defer redisCache.Close()
-
-    notifyAddr:= os.Getenv("NOTIFY_SERVICE_ADDR")
-    if notifyAddr == "" {
-        return fmt.Errorf("%w: NOTIFY_SERVICE_ADDR environment variable is not set", err)
-    }
-    conn, err := grpc.NewClient(notifyAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-    if err != nil {
-        var field log.Field
-        field = log.Field{Key: "error", Value: err}
-        logger.Error("Failed to connect to notification service", field)
+        logger.Error("Failed to connect to notification service", log.Field{Key: "error", Value: err})
         return fmt.Errorf("%w: Failed to connect to notification service", err)
     }
-    defer conn.Close()  
+    defer conn.Close()
 
     notificationClient := grpc_client.NewNotificationClient(conn)
-    cb:= *cb.NewCircuitBreaker(5, 3, 2, 30*time.Second)
-    notifierWithCB:= grpc_client.NewNotifierWithCircuitBreaker(notificationClient, &cb)
+    circuitBreaker := *cb.NewCircuitBreaker(5, 3, 2, 30*time.Second)
+    notifierWithCB := grpc_client.NewNotifierWithCircuitBreaker(notificationClient, &circuitBreaker)
 
-    
-    todoService, err := usecases.NewTodoService(storage, redisCache, notifierWithCB, logger)
+    // 3. Start relay
+    relayCtx, relayCancel := context.WithCancel(ctx)
+    defer relayCancel()
+    go d.relay.Start(relayCtx)
+
+    todoService, err := usecases.NewTodoService(ctx, d.storage, d.cache, notifierWithCB, logger)
     if err != nil {
         var field log.Field
         field = log.Field{Key: "error", Value: err}
