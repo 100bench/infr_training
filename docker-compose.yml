@@ -1,5 +1,6 @@
 services:
   prometheus:
+    container_name: prometheus
     image: prom/prometheus:latest
     ports: 
       - "9090:9090"
@@ -7,6 +8,7 @@ services:
       - ./deployment/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
   
   grafana:
+    container_name: grafana
     environment:
       - GF_PATHS_PROVISIONING=/etc/grafana/provisioning # просто
       - GF_AUTH_ANONYMOUS_ENABLED=true # дефолтные
@@ -22,6 +24,7 @@ services:
       - prometheus
 
   db:
+    container_name: postgres
     image: postgres:16-alpine
     restart: always
     environment:
@@ -46,32 +49,92 @@ services:
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes
+    environment:
+      REDIS_ADDR: ${REDIS_ADDR}
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 5s
       retries: 5
 
+  zookeeper:
+    container_name: zookeeper
+    image: confluentinc/cp-zookeeper:7.4.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  kafka: 
+    container_name: kafka
+    image: confluentinc/cp-kafka:7.4.0
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTOCREATE_TOPICS_ENABLE: "true"
+    ports:
+      - "9092:9092"
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+
   migrate:
+    container_name: migrate
     image: migrate/migrate:v4.17.0
     depends_on:
       db:
         condition: service_healthy
     volumes:
       - ./todo_api/deployment/migrations:/migrations:ro
-    command: 
+    command:
+      ["-path", "/migrations", "-database", "${DSN_STRING}", "up"]
+
+  migrate-notify:
+    container_name: migrate-notify
+    image: migrate/migrate:v4.17.0
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./notify_api/deployment/migrations:/migrations:ro
+    command:
       ["-path", "/migrations", "-database", "${DSN_STRING}", "up"]
 
   notify-api:
-    dns: 
-      - 8.8.8.8
+    container_name: notify_api
     build:
       context: .
       dockerfile: notify_api/Dockerfile
     ports:
       - "50051:50051"
+    environment:
+      DSN_STRING: ${DSN_STRING}
+      KAFKA_BROKERS: ${KAFKA_BROKERS}
+      KAFKA_TOPIC: ${KAFKA_TOPIC}
+    depends_on:
+      db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
 
   todo-api:
+    container_name: todo-api
     dns: 
       - 8.8.8.8
     build:
@@ -80,6 +143,8 @@ services:
     ports: 
       - "8080:8080"
     environment:
+      KAFKA_BROKERS: ${KAFKA_BROKERS}
+      KAFKA_TOPIC: ${KAFKA_TOPIC}
       NOTIFY_SERVICE_ADDR: ${NOTIFY_SERVICE_ADDR}
       REDIS_ADDR: ${REDIS_ADDR}
       DSN_STRING: ${DSN_STRING}

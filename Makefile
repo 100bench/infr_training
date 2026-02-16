@@ -1,8 +1,8 @@
 COMPOSE = docker compose
 
 up:
-	$(COMPOSE) up -d db redis
-	$(COMPOSE) up migrate
+	$(COMPOSE) up -d db redis kafka
+	$(COMPOSE) up migrate migrate-notify
 	$(COMPOSE) up -d
 
 down:
