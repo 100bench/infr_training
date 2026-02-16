@@ -106,6 +106,7 @@ func (r *OutboxRelay) relayBatch(ctx context.Context) error {
 			Value: e.Payload,
 			Headers: []kafka.Header{
 				{Key: "event_type", Value: []byte(e.EventType)},
+				{Key: "event_id", Value: []byte(e.ID.String())},
 			},
 		}
 	}

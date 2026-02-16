@@ -2,9 +2,9 @@ package postgres
 
 import (
 	"context"
-	"fmt"
-	"errors"	
 	"encoding/json"
+	"errors"
+	"fmt"
 
 	en "github.com/100bench/infr_training/todo_api/internal/entities"
 	er "github.com/100bench/infr_training/pkg/errors"
@@ -16,12 +16,10 @@ type TaskStorage struct {
 	pool *pgxpool.Pool
 }
 
-func NewTaskStorage(ctx context.Context, dsn string) (*TaskStorage, error) {
-	pool, err:= pgxpool.Connect(ctx, dsn)
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to postgres: %w", err)
+func NewTaskStorage(pool *pgxpool.Pool) (*TaskStorage, error) {
+	if pool == nil {
+		return nil, fmt.Errorf("postgres.NewTaskStorage: pool is nil")
 	}
-
 	return &TaskStorage{
 		pool: pool,
 	}, nil
@@ -151,8 +149,8 @@ func (t *TaskStorage) Delete(ctx context.Context, id string) (string, error) {
 		ID:    id,
 		Title: title,
 	})
-	const outboxQ = `INSERT INTO outbox (event_type, payload) VALUES ($1, $2)`
-	_, err = tx.Exec(ctx, outboxQ, en.EventTypeTaskDeleted, payload)
+	const outboxQ = `INSERT INTO outbox (task_id, event_type, payload) VALUES ($1, $2, $3)`
+	_, err = tx.Exec(ctx, outboxQ, id, en.EventTypeTaskDeleted, payload)
 	if err != nil {
 		return "", fmt.Errorf("failed to insert into outbox: %w", err)
 	}
