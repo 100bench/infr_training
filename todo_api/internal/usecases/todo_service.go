@@ -10,16 +10,22 @@ import (
 	"github.com/100bench/infr_training/pkg/logger"
 	pb "github.com/100bench/infr_training/pkg/proto/gen/notification/v1"
 	"github.com/100bench/infr_training/todo_api/internal/entities"
+	"golang.org/x/sync/singleflight"
 )
 
-type TodoService struct {
+type TodoService struct{
+	ctx context.Context
 	storage TaskStorage
 	cache Cache
 	notifier Notifier
 	log logger.Logger
+	group singleflight.Group
 }
 
-func NewTodoService(storage TaskStorage, cache Cache, notifier Notifier, logger logger.Logger) (*TodoService, error) {
+func NewTodoService(ctx context.Context, storage TaskStorage, cache Cache, notifier Notifier, logger logger.Logger) (*TodoService, error) {
+	if ctx == nil{
+		return nil, fmt.Errorf("NewTodoService ctx: %w", er.ErrNilDependency)
+	}
 	if storage == nil {
 		return nil, fmt.Errorf("NewTodoService storage: %w", er.ErrNilDependency)
 	}
@@ -33,6 +39,7 @@ func NewTodoService(storage TaskStorage, cache Cache, notifier Notifier, logger 
 		return nil, fmt.Errorf("NewTodoService logger: %w", er.ErrNilDependency)
 	}
 	return &TodoService{
+		ctx: ctx,
 		storage: storage,
 		cache: cache,
 		notifier: notifier,
@@ -65,21 +72,33 @@ func (s *TodoService) GetTask(ctx context.Context, id string) (*entities.Task, e
 		if err == nil {
 			return decodeTask(cached)
 		}
-	}
+	}	
 
-	// Fallback to storage
-	task, err := s.storage.Load(ctx, id)
+	v, err, shared := s.group.Do(key, func() (interface{}, error) {
+		val, err:= s.cache.Get(s.ctx, key)
+		if err == nil {
+			return decodeTask(val)
+		}
+
+		task, err := s.storage.Load(s.ctx, id)
+		if err != nil {
+			return nil, fmt.Errorf("storage load: %w", err)
+		}
+
+		if encodedTask, err := encodeTask(task); err == nil {
+			s.cache.Set(s.ctx, key, encodedTask, time.Minute*5)
+		}
+		return task, nil
+	})
+
+	if shared { 
+		s.log.Info("singleflight: request deduplicated for key", logger.Field{Key: "key", Value: key})
+		}
+
 	if err != nil {
 		return nil, err
 	}
-
-	// Save to cache
-	if s.cache != nil {
-		if encodedTask, err := encodeTask(task); err == nil {
-			s.cache.Set(ctx, key, encodedTask, time.Minute*5)
-		}
-	}
-	return task, nil
+	return v.(*entities.Task), nil
 }
 
 func (s *TodoService) DeleteTask(ctx context.Context, id string) error {
