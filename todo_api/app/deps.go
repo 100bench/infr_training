@@ -16,7 +16,7 @@ import (
 type deps struct {
 	pool        *pgxpool.Pool
 	storage     *postgres.TaskStorage
-	cache       *cache.RedisCache
+	cache       *cache.TwoLevelCache
 	kafkaWriter *kafka.Writer
 	relay       *relay.OutboxRelay
 }
@@ -26,16 +26,22 @@ func initDeps(ctx context.Context, cfg *config.Config, logger log.Logger) (*deps
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to postgres: %w", err)
 	}
-
 	storage, err := postgres.NewTaskStorage(pool)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create task storage: %w", err)
 	}
 
-	redisCache, err := cache.NewRedisCache(ctx, cfg.RedisAddr)
+
+	redisCache, err := cache.NewRedis(ctx, cfg.RedisAddr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create cache: %w", err)
 	}
+	inMemmory := cache.NewLruMemCache(cfg.CacheSize, cfg.Ttl)
+	twoLevelCache, err:= cache.NewTwoLevelCache(redisCache, inMemmory, logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create two level cache: %w", err)
+	}
+
 
 	kafkaWriter := kafka.NewWriter(kafka.WriterConfig{
 		Brokers: cfg.KafkaBrokers,
@@ -50,7 +56,7 @@ func initDeps(ctx context.Context, cfg *config.Config, logger log.Logger) (*deps
 	return &deps{
 		pool:        pool,
 		storage:     storage,
-		cache:       redisCache,
+		cache:       twoLevelCache,
 		kafkaWriter: kafkaWriter,
 		relay:       outboxRelay,
 	}, nil

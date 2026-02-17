@@ -13,7 +13,8 @@ type Config struct {
 
 	// Cache
 	RedisAddr string
-
+	CacheSize int
+	Ttl time.Duration
 	// Kafka
 	KafkaBrokers []string
 	KafkaTopic   string
@@ -33,6 +34,9 @@ func Load() (*Config, error) {
 	cfg := &Config{
 		DSN:       getEnv("DSN_STRING", "postgres://user:password@db:5432/todo_store?sslmode=disable"),
 		RedisAddr: getEnv("REDIS_ADDR", ""),
+
+		CacheSize: getEnvInt("CACHE_SIZE", 5),
+		Ttl: getEnvDuration("CACHE_TTL", 10*time.Minute),
 
 		KafkaBrokers: []string{getEnv("KAFKA_BROKERS", "localhost:9092")},
 		KafkaTopic:   getEnv("KAFKA_TOPIC", "task.events"),
