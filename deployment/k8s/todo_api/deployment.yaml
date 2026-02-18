@@ -8,6 +8,11 @@ metadata:
     environment: development
 spec:
   replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       app: todo-api-service
@@ -16,11 +21,6 @@ spec:
       labels:
         app: todo-api-service
     spec:
-      strategy:
-        type: RollingUpdate
-        rollingUpdate:
-          maxUnavailable: 0
-          maxSurge: 1
       imagePullSecrets: 
       - name: ghcr-secret
       terminationGracePeriodSeconds: 40
@@ -57,8 +57,3 @@ spec:
             port: 8080
           initialDelaySeconds: 5
           periodSeconds: 5
-
-#             maksim@cv6007737:~/infr_training$ kubectl apply -f deployment/k8s/todo_api/
-# configmap/todo-api-config unchanged
-# service/todo-app configured
-# Error from server (BadRequest): error when creating "deployment/k8s/todo_api/deployment.yaml": Deployment in version "v1" cannot be handled as a Deployment: strict decoding error: unknown field "spec.template.spec.containers[0].readinessProbe.httpGet.initialDelaySeconds", unknown field "spec.template.spec.containers[0].readinessProbe.httpGet.periodSeconds"
