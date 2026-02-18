@@ -16,6 +16,11 @@ spec:
       labels:
         app: todo-api-service
     spec:
+      strategy:
+        type: RollingUpdate
+        rollingUpdate:
+          maxUnavailable: 0
+          maxSurge: 1
       imagePullSecrets: 
       - name: ghcr-secret
       terminationGracePeriodSeconds: 40
