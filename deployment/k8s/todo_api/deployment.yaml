@@ -6,7 +6,6 @@ metadata:
   labels:
     app: todo-api-service
     environment: development
-
 spec:
   replicas: 3
   selector:
@@ -18,14 +17,14 @@ spec:
         app: todo-api-service
     spec:
       imagePullSecrets: 
-        - name: ghcr-secret
+      - name: ghcr-secret
       terminationGracePeriodSeconds: 40
       containers:
       - name: todo-api-container
         image: ghcr.io/100bench/todo-api:v1
         ports:
         - containerPort: 8080
-        name: http
+          name: http
         envFrom:
         - configMapRef:
             name: todo-api-config
@@ -51,5 +50,10 @@ spec:
           httpGet:
             path: /ready
             port: 8080
-            initialDelaySeconds: 5
-            periodSeconds: 5
+          initialDelaySeconds: 5
+          periodSeconds: 5
+
+#             maksim@cv6007737:~/infr_training$ kubectl apply -f deployment/k8s/todo_api/
+# configmap/todo-api-config unchanged
+# service/todo-app configured
+# Error from server (BadRequest): error when creating "deployment/k8s/todo_api/deployment.yaml": Deployment in version "v1" cannot be handled as a Deployment: strict decoding error: unknown field "spec.template.spec.containers[0].readinessProbe.httpGet.initialDelaySeconds", unknown field "spec.template.spec.containers[0].readinessProbe.httpGet.periodSeconds"
