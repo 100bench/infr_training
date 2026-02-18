@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: todo-api-config
+  namespace: todo-app
+data:
+  SERVER_PORT: "8080"
+  REDIS_ADDR: "redis:6379"
+  KAFKA_BROKERS: "kafka:9092"
+  KAFKA_TOPIC: "task.events"
+  NOTIFY_SERVICE_ADDR: ""
+  CACHE_SIZE: "1000"
+  CACHE_TTL: "10m"
+  RELAY_BATCH_SIZE: "100"
+  RELAY_POLL_INTERVAL: "500ms"

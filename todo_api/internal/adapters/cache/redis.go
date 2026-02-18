@@ -37,3 +37,7 @@ func (r *Redis) Set(ctx context.Context, key string, value string, ttl time.Dura
 func (r *Redis) Delete(ctx context.Context, key string) error {
 	return r.client.Del(ctx, key).Err()
 }
+
+func (r *Redis) Ping(ctx context.Context) error {
+	return r.client.Ping(ctx).Err()
+}

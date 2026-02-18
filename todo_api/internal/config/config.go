@@ -35,7 +35,7 @@ func Load() (*Config, error) {
 		DSN:       getEnv("DSN_STRING", "postgres://user:password@db:5432/todo_store?sslmode=disable"),
 		RedisAddr: getEnv("REDIS_ADDR", ""),
 
-		CacheSize: getEnvInt("CACHE_SIZE", 5),
+		CacheSize: getEnvInt("CACHE_SIZE", 1000),
 		Ttl: getEnvDuration("CACHE_TTL", 10*time.Minute),
 
 		KafkaBrokers: []string{getEnv("KAFKA_BROKERS", "localhost:9092")},

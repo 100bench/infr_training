@@ -40,14 +40,17 @@ func (c *TwoLevelCache) Set(ctx context.Context, key, value string, ttl time.Dur
 
 func (c *TwoLevelCache) Get(ctx context.Context, key string) (string, error) {
 	if value, ok := c.level1.Get(key); ok {
+		cacheHitsTotal.WithLabelValues("l1").Inc()
 		return value, nil
 	}
 
 	value, err := c.level2.Get(ctx, key)
 	if err != nil {
+		cacheL2ErrorsTotal.Inc()
 		c.logger.Error("TwoLevelCache.Get: ", log.Field{"error", err})
 		return "", fmt.Errorf("TwoLevelCache.Get: %w", err)	
 	}
+	cacheHitsTotal.WithLabelValues("l2").Inc()
 	c.level1.Set(key, value)
 	
 	return value, nil

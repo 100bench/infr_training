@@ -69,7 +69,8 @@ func RunApp() error {
         return fmt.Errorf("%w: Failed to create todo service", err)
     }
 
-    server, err := public.NewServer(todoService)
+    readyChecker := &appReadinessChecker{pool: d.pool, cache: d.redisClient}
+    server, err := public.NewServer(todoService, readyChecker)
     if err != nil {
         return err
     }
@@ -82,6 +83,7 @@ func RunApp() error {
         WriteTimeout: 15 * time.Second,
         IdleTimeout:  60 * time.Second,
     }
+
     
     // 3. Start server
     go func() {

@@ -16,10 +16,11 @@ import (
 type Server struct {
 	service ServicePort
 	router  *chi.Mux
+    readyChecker ReadyChecker
 }
 
 
-func NewServer(service ServicePort) (*Server, error) {
+func NewServer(service ServicePort, readyChecker ReadyChecker) (*Server, error) {
 	if service == nil {
 		return nil, errors.Wrap(er.ErrNilDependency, "public server service")
 	}
@@ -30,6 +31,7 @@ func NewServer(service ServicePort) (*Server, error) {
 	s := &Server{
 		service: service,
 		router:  r,
+		readyChecker: readyChecker,
 	}
 	s.setupRoutes()
 	return s, nil
@@ -39,10 +41,11 @@ func (s *Server) GetRouter() *chi.Mux {
 	return s.router
 }
 
-func (s *Server) setupRoutes() {
+func (s *Server) setupRoutes() {  
     s.router.Handle("/metrics", promhttp.Handler())
-    
-	s.router.Route("/api/v1", func(r chi.Router) {
+    s.router.Get("/live", s.handleLive)
+    s.router.Get("/ready", s.handleReady)
+    s.router.Route("/api/v1", func(r chi.Router) {
 		r.Post("/task", s.handleCreateTask)
 		r.Get("/task/{id}", s.handleGetTask)
 		r.Delete("/task/{id}", s.handleDeleteTask)
@@ -50,6 +53,18 @@ func (s *Server) setupRoutes() {
 }
 
 
+func (s *Server) handleReady(w http.ResponseWriter, r *http.Request) {
+    ctx:= r.Context()
+    if err:= s.readyChecker.Ready(ctx); err != nil{
+        http.Error(w, "service not ready",  http.StatusServiceUnavailable)
+        return
+    }
+    w.WriteHeader(http.StatusOK)
+}
+
+func (s *Server) handleLive(w http.ResponseWriter, r *http.Request) {
+    w.WriteHeader(http.StatusOK)
+}
 
 func (s *Server) handleCreateTask(w http.ResponseWriter, r *http.Request) {
     ctx := r.Context()
