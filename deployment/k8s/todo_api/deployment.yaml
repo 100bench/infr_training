@@ -17,7 +17,8 @@ spec:
       labels:
         app: todo-api-service
     spec:
-      imagePullSecrets: - name: ghcr-secret
+      imagePullSecrets: 
+        - name: ghcr-secret
       terminationGracePeriodSeconds: 40
       containers:
       - name: todo-api-container
@@ -40,15 +41,15 @@ spec:
           limits:
             memory: "128Mi"
             cpu: "500m"
-          livenessProbe:
-            httpGet:
-              path: /live
-              port: 8080
-            initialDelaySeconds: 30
-            periodSeconds: 10
-          readinessProbe:
-            httpGet:
-              path: /ready
-              port: 8080
+        livenessProbe:
+          httpGet:
+            path: /live
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
             initialDelaySeconds: 5
             periodSeconds: 5

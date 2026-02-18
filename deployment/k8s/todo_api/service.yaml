@@ -5,7 +5,7 @@ metadata:
   namespace: todo-app
 spec:
   selector:
-    app: todo-app-service
+    app: todo-api-service
   ports:
     - protocol: TCP
       port: 8080
