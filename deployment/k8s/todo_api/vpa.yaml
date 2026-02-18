@@ -1,0 +1,21 @@
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: todo-api-vpa
+  namespace: todo-app
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: todo-api-service
+  updatePolicy:
+    updateMode: "Off"
+  resourcePolicy:
+    containerPolicies:
+    - containerName: "*"
+      minAllowed:
+        cpu: 50m
+        memory: 32Mi
+      maxAllowed:
+        cpu: "2"
+        memory: 512Mi
